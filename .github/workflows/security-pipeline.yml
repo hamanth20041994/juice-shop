@@ -54,7 +54,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Scan dependencies (block Critical/High)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           scan-type: fs
           scan-ref: .
@@ -74,7 +74,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Generate SBOM (CycloneDX)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           scan-type: fs
           scan-ref: .
@@ -102,7 +102,7 @@ jobs:
         run: docker build -f Dockerfile -t juice-shop:scan .
 
       - name: Scan container image (block Critical/High)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: juice-shop:scan
           format: table
