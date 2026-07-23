@@ -1,0 +1,31 @@
+rules:
+  # Rule 1: SQL Injection via string concatenation (common in Juice Shop)
+  - id: juice-shop-sql-injection
+    message: >-
+      Potential SQL injection: user input concatenated into SQL query.
+      Use parameterized queries instead.
+    severity: ERROR
+    languages: [javascript, typescript]
+    pattern-either:
+      - pattern: $DB.query("..." + $INPUT + "...")
+      - pattern: $DB.query(`...${$INPUT}...`)
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"
+      owasp: "A03:2021 - Injection"
+
+  # Rule 2: Hardcoded credentials in source code
+  - id: juice-shop-hardcoded-secret
+    message: >-
+      Hardcoded secret or API key detected. Use environment variables
+      or a secrets manager instead.
+    severity: ERROR
+    languages: [javascript, typescript]
+    pattern-either:
+      - pattern: const $VAR = "AKIA..."
+      - pattern: password = "..."
+      - pattern: apiKey = "..."
+    metadata:
+      category: security
+      cwe: "CWE-798: Hardcoded Credentials"
+      owasp: "A07:2021 - Identification and Authentication Failures"
