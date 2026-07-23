@@ -1,0 +1,99 @@
+# DevSecOps Security Pipeline — Acme Financial Services Challenge
+# Scans: Secrets | SAST | SCA+SBOM | Container Image
+
+name: DevSecOps Security Pipeline
+
+on:
+  push:
+    branches: [master, develop, 'test/**']
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # ── 1. SECRETS SCANNING ──────────────────────────────────────
+  secrets-scan:
+    name: Secrets Detection (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── 2. SAST ────────────────────────────────────────────────────
+  sast-scan:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/javascript
+            sast/custom-rules/juice-shop-rules.yml
+
+  # ── 3. SCA + SBOM ────────────────────────────────────────────
+  sca-scan:
+    name: SCA + SBOM (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Scan dependencies (block Critical/High)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs.sarif
+          severity: CRITICAL,HIGH
+          exit-code: 1
+
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: cyclonedx
+          output: sbom.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.json
+
+  # ── 4. CONTAINER BUILD + SCAN ────────────────────────────────
+  container-scan:
+    name: Container Build & Scan
+    runs-on: ubuntu-latest
+    needs: [secrets-scan, sast-scan, sca-scan]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -f Dockerfile -t juice-shop:scan .
+
+      - name: Scan container image (block Critical/High)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: juice-shop:scan
+          format: sarif
+          output: trivy-image.sarif
+          severity: CRITICAL,HIGH
+          exit-code: 1
